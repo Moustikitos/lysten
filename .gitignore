@@ -147,3 +147,4 @@ $RECYCLE.BIN/
 
 # misceleanous
 .vscode/
+*.db
