@@ -1,4 +1,4 @@
-# -*- encoding:utf-8 -*-
+# -*- coding:utf-8 -*-
 # (c) Toons 2018
 
 # This mocule contains the abstract class Action
@@ -12,10 +12,16 @@ import sqlite3
 
 class Action:
 	"""
+	This is an abstract class providing utilities to execute peace of code via
+	main function. It takes a regex string and a transaction content as keyword
+	args.
 	"""
-	
+
 	@staticmethod
 	def _cursor():
+		"""
+		Check if needed table exists and return database cursor.
+		"""
 		cursor = __DATABASE__.cursor()
 		try:
 			cursor.execute("CREATE TABLE actions(timestamp INTEGER, txid TEXT, vendorField TEXT, amount INTEGER, codename TEXT, args TEXT);")
@@ -25,6 +31,8 @@ class Action:
 		return cursor
 
 	def __init__(self, regex, **payload):
+		"""
+		"""
 		self.regex = regex
 		self.refund = payload.pop("refund", 1.0)
 		self.payload = payload
@@ -33,7 +41,7 @@ class Action:
 	def revert(self):
 		payload = dict([k,v] for k,v in self.payload.items() if k not in [
 			"signature", "signSignature", "id",
-			"asset", 
+			"asset",
 		])
 		payload["amount"] = self.refund*self.payload["amount"]
 		payload["recipientId"] = self.payload.get("senderId", None)
@@ -66,4 +74,4 @@ class Action:
 	def main(*args):
 		"""
 		"""
-		pass
+		raise NotImplementedError
