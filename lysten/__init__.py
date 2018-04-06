@@ -1,6 +1,7 @@
 # -*- coding:utf-8 -*-
 # (c) Toons 2018
 
+import io
 import os
 import sys
 import imp
@@ -55,3 +56,4 @@ def connect(**config):
 
 __CONFIG__ = loadConfig()
 __NETWORK__ = loadNetwork(__CONFIG__.get("network", ""))
+__SESSION__ = connect(**__NETWORK__)
