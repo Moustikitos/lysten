@@ -4,6 +4,8 @@ from lysten import __ROOT__, __CONFIG__, __SESSION__, __DATABASE__, __NETWORK__
 from lysten import loadJson, dumpJson, loadAction
 
 import os
+import re
+import sys
 import time
 import queue
 import random
@@ -150,6 +152,7 @@ def consume(lifo, fifo, lock):
 		elem = lifo.get(True)
 		# if pulled elem is a dictionary
 		if isinstance(elem, dict):
+			sys.stdout.write("> applying %s with %r...\n" % (elem["codename"], elem["args"]))
 			try:
 				result = loadAction(elem["codename"])(*elem["args"], **elem["tx"])
 			except Exception as e:
@@ -173,6 +176,7 @@ def finalize(timestamp, status, tx, codename, args):
 
 
 def main():
+	sys.stdout.write("> starting block parsing...\n")
 	# needed data
 	FIFO = queue.Queue()
 	LIFO = queue.LifoQueue()
@@ -194,36 +198,44 @@ def main():
 	# its the arguments parsed from the vendorField value according to registered regex
 	unparsed_blocks = getUnparsedBlocks()
 	for height in unparsed_blocks:
+		sys.stdout.write("> height %d\n" % height)
 		for tx in getTransactionsFromBlockHeight(height):
 			# fill LIFO with smartBridge actions on tx send
 			for trigger in [trig for trig in s_triggers if tx["senderId"] == trig["senderId"]]:
 				match = re.match(trigger["regex"], tx["vendorField"])
 				if match:
+					sys.stdout.write("> send match on tx #%s\n" % tx["id"])
 					LIFO.put(dict(tx=tx, codename=trigger["codename"], args=match.groups()))
 			# fill LIFO with smartBridge actions on tx receive
 			for trigger in [trig for trig in r_triggers if tx["recipientId"] == trig["recipientId"]]:
 				match = re.match(trigger["regex"], tx["vendorField"])
 				if match:
+					sys.stdout.write("> receive match on tx #%s\n" % tx["id"])
 					LIFO.put(dict(tx=tx, codename=trigger["codename"], args=match.groups()))
 
 	# launch pool of consumers
+	threads = []
 	for i in range(__CONFIG__.get("pool", 2)):
-		thread = threading.Thread(target=consume, args=(LIFO, FIFO, LOCK))
-		thread.start()
-	# wait till last thread finishes
-	thread.join()
+		t = threading.Thread(target=consume, args=(LIFO, FIFO, LOCK))
+		t.start()
+		threads.append(t)
+	# wait till all threads finished
+	for t in threads: t.join()
+	# put boolean value to stop threads
+	FIFO.put(True)
+ 
 
 	# manage data found in the FIFO
 	LOCK.set()
+	sys.stdout.write("> finalizing...\n")
 	while LOCK.is_set():
-		try:
-			data = finalize(**FIFO.get_nowait())
-			if data:
-				# refund the smartbridge amount if any
-				pass
-		except queue.Empty:
+		elem = FIFO.get()
+		if isinstance(elem, dict):
+			finalize(**elem)
+		else:
 			LOCK.clear()
 
 	# save the last parsed block
 	if len(unparsed_blocks):
 		markLastParsedBlock(max(unparsed_blocks))
+	sys.stdout.write("> finished\n")
