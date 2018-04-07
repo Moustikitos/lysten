@@ -1,12 +1,13 @@
 # -*- coding:utf8 -*-
 
-from lysten import __ROOT__, __CONFIG__, __SESSION__
+from lysten import __ROOT__, __CONFIG__, __SESSION__, __DATABASE__, __NETWORK__
 from lysten import loadJson, dumpJson
 
 import os
 import time
 import queue
 import random
+import sqlite3
 import threading
 
 
@@ -33,7 +34,7 @@ def get(entrypoint, **kwargs):
     for key, val in kwargs.items():
         params[key.replace('and_', 'AND:')] = val
 
-    peer = peer if peer else random.choice(__CONFIG__["peers"])
+    peer = peer if peer else random.choice(__NETWORK__["peers"])
 
     try:
         response = __SESSION__.get('{0}{1}'.format(peer, entrypoint), params=params)
@@ -72,6 +73,9 @@ def markParsedBlocks(height, nb=0):
 	}, os.path.join(__ROOT__, "core.json"))
 
 
+def getUnparsedTransactions(*blocks):
+	pass 
+	
 ## DOES NOT WORK !
 # blockid from height :		
 # http://209.250.233.136:4001/api/blocks?height=4032328
@@ -86,55 +90,68 @@ def getTransactionsFromBlockHeight(height):
 #####
 
 
-# @staticmethod
-# def _cursor():
-# 	"""
-# 	Check if needed table exists and return database cursor.
-# 	"""
-# 	cursor = __DATABASE__.cursor()
-# 	try:
-# 		cursor.execute("CREATE TABLE actions(timestamp INTEGER, txid TEXT, vendorField TEXT, amount INTEGER, codename TEXT, args TEXT);")
-# 		cursor.execute("CREATE UNIQUE INDEX actions_idx ON actions(txid);")
-# 	except sqlite3.Error as error:
-# 		pass
-# 	return cursor
-
-# def commit(self):
-# 	if self._match:
-# 		Action._cursor().execute(
-# 			"INSERT OR REPLACE INTO actions(timestamp, txid, vendorField, amount, codename, args) VALUES(?,?,?,?,?,?);",
-# 			(int(time.time()), self.payload["id"], self.payload["vendorField"], self.payload["amount"], self.__class__.__name__, repr(self._match))
-# 		)
-# 		__DATABASE__.commit()
-# 		return True
-# 	return False
-
-def storeSmartbridge(timestamp, status, txid, codename, message):
-	pass
+def _cursor():
+	"""
+	Check if needed table exists and return database cursor.
+	"""
+	cursor = __DATABASE__.cursor()
+	try:
+		cursor.execute("CREATE TABLE executed(timestamp INTEGER, status TEXT, amount INTEGER, txid TEXT, codename TEXT, message TEXT);")
+		cursor.execute("CREATE TABLE send_trigger(senderId TEXT, regex TEXT, codename TEXT, fees REAL);")
+		cursor.execute("CREATE TABLE receive_trigger(recipientId TEXT, regex TEXT, codename TEXT, fees REAL);")
+		cursor.execute("CREATE UNIQUE INDEX send_idx ON send_trigger(senderId, codename);")
+		cursor.execute("CREATE UNIQUE INDEX receive_idx ON receive_trigger(recipientId, codename);")
+	except sqlite3.Error as error:
+		pass
+	return cursor
 
 
-def setSenderIdTriggers(senderId, regex, codename, fees=0.01):
-	pass
+def storeSmartbridge(timestamp, status, amount, txid, codename, message):
+	_cursor().execute(
+		"INSERT OR REPLACE INTO executed(timestamp, status, amount, txid, codename, message) VALUES(?,?, ?,?,?,?);",
+		(timestamp, status, amount, txid, codename, message)
+	)
+	__DATABASE__.commit()
 
 
-def unsetSenderIdTriggers():
-	pass
+def setSenderIdTrigger(senderId, regex, codename, fees=0.01):
+	_cursor().execute(
+		"INSERT OR REPLACE INTO send_trigger(senderId, regex, codename, fees) VALUES(?,?,?,?);",
+		(senderId, regex, codename, fees)
+	)
+	__DATABASE__.commit()
+
+
+def unsetSenderIdTrigger(senderId, codename):
+	_cursor().execute(
+		"DELETE FROM send_trigger WHERE senderID=? AND codename=?;",
+		(senderId, codename)
+	)
+	__DATABASE__.commit()
 
 
 def getSenderIdTriggers():
-	return []
+	return _cursor().execute("SELECT * FROM send_trigger;").fetchall()
 
 
-def setRecipientIdTriggers(recipientId, regex, codename, fees=0.01):
-	pass
+def setRecipientIdTrigger(recipientId, regex, codename, fees=0.01):
+	_cursor().execute(
+		"INSERT OR REPLACE INTO receive_trigger(recipientId, regex, codename, fees) VALUES(?,?,?,?);",
+		(recipientId, regex, codename, fees)
+	)
+	__DATABASE__.commit()
 
 
-def unsetRecipientIdTriggers():
-	pass
+def unsetRecipientIdTrigger(recipientId, codename):
+	_cursor().execute(
+		"DELETE FROM receive_trigger WHERE recipientId=? AND codename=?;",
+		(recipientId, codename)
+	)
+	__DATABASE__.commit()
 
 
 def getRecipientIdTriggers():
-	return []
+	return _cursor().execute("SELECT * FROM receive_trigger;").fetchall()
 
 
 def consume(lifo, fifo, lock):
@@ -157,9 +174,9 @@ def consume(lifo, fifo, lock):
 
 
 def finalize(timestamp, status, tx, codename, args):
-	storeSmartbridge(timestamp, status, tx["id"], codename, args)
+	storeSmartbridge(timestamp, status, tx["amount"], tx["id"], codename, args)
 	if status != "success":
-		return revertTx(tx)
+		return True #revertTx(tx)
 	else:
 		return False
 
