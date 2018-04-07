@@ -12,11 +12,9 @@ A trigger relies on an account address and can be activated in two ways :
  + account sends a transaction
 
 On bridge-enabled blockchain, there is a specific data named `vendorField` that
-can contain a 64-length-string (256 in a near future).
-
-We can define trigger as a patterned string backed in a `vendorField` transaction
-sent by a specified `senderId` (account address) or received by a `recipientId`
-(account address) associated to an execution `codename`.
+can contain a 64-length-string (256 in a near future). A Trigger is defined as
+apatterned string backed in a `vendorField` transaction sent by a specified
+`senderId` or received by a `recipientId` associated to an execution `codename`.
 
 ## Removing a trigger
 
@@ -36,7 +34,6 @@ if a check ends up with an error.
 ## Action
 
 ### `lysten.loadAction(codename)`
-
 
 ## Exemple
 
