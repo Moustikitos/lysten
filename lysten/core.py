@@ -192,7 +192,8 @@ def main():
 	# producer loop
 	# in the LIFO queue, push a dict containing, the tx, the function codename to execute and give
 	# its the arguments parsed from the vendorField value according to registered regex
-	for height in getUnparsedBlocks():
+	unparsed_blocks = getUnparsedBlocks()
+	for height in unparsed_blocks:
 		for tx in getTransactionsFromBlockHeight(height):
 			# fill LIFO with smartBridge actions on tx send
 			for trigger in [trig for trig in s_triggers if tx["senderId"] == trig["senderId"]]:
@@ -223,4 +224,5 @@ def main():
 		except queue.Empty:
 			LOCK.clear()
 
-	markLastParsedBlock()
+	if len(unparsed_blocks):
+		markLastParsedBlock(max(unparsed_blocks))
