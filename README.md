@@ -23,7 +23,7 @@ apatterned string backed in a `vendorField` transaction sent by a specified
 
 ## Parsing blocks
 
-### `core.main()`
+### `lysten.core.main()`
 
 The `main` function parses every transaction found in blocks generated since its
 last call. Because of block time parameter on DPOS BC, nothing could happen between
@@ -34,6 +34,21 @@ if a check ends up with an error.
 ## Action
 
 ### `lysten.loadAction(codename)`
+
+This function is used in `main` to execute `codename`.
+
+`codename` is a function name to be search accross registered folder (default
+`site-actions`). This function take a list of argument extracted from `vendorField`
+using regular expressions (trigger `regex`).
+
+The function prototype is :
+```python
+def action(*args, **kw):
+    pass
+```
+where:
+ + `args` are the argument geven trough `vendorField`
+ + `kw` is the transaction payload as `json`data
 
 ## Exemple
 
