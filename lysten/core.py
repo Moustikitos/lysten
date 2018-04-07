@@ -1,7 +1,7 @@
 # -*- coding:utf8 -*-
 
 from lysten import __ROOT__, __CONFIG__, __SESSION__, __DATABASE__, __NETWORK__
-from lysten import loadJson, dumpJson
+from lysten import loadJson, dumpJson, loadAction
 
 import os
 import time
@@ -10,7 +10,7 @@ import random
 import sqlite3
 import threading
 
-
+	
 def get(entrypoint, **kwargs):
     """
     Generic GET call using requests lib. It returns server response as dict object.
@@ -151,7 +151,7 @@ def consume(lifo, fifo, lock):
 		# if pulled elem is a dictionary
 		if isinstance(elem, dict):
 			try:
-				result = getattr(actions, elem["codename"])(*elem["args"], **elem["tx"])
+				result = loadAction(elem["codename"])(*elem["args"], **elem["tx"])
 			except Exception as e:
 				fifo.put(dict(timestamp=time.time(), status="error", tx=elem["tx"], codename=elem["codename"], args="%s:%s"%(e.__class__.__name__, e.args[0])))
 			else:
@@ -224,5 +224,6 @@ def main():
 		except queue.Empty:
 			LOCK.clear()
 
+	# save the last parsed block
 	if len(unparsed_blocks):
 		markLastParsedBlock(max(unparsed_blocks))

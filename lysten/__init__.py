@@ -9,6 +9,7 @@ import json
 import sqlite3
 import requests
 
+__VERSION__ = "0.1.0"
 
 __PY3__ = True if sys.version_info[0] >= 3 else False
 __FROZEN__ = hasattr(sys, "frozen") or hasattr(sys, "importers") or imp.is_frozen("__main__")
@@ -58,3 +59,12 @@ def connect(**network):
 		"version": __NETWORK__.get("version", "0.0.0"),
 		"port": "%d"%__NETWORK__.get("port", 22)
 	})
+
+def loadAction(name):
+	for path in __path__[1:]:
+		modules = [os.path.join(path, mod) for mod in os.listdir(path)]
+		for module in modules:
+			imp.load_source("tmp", module)
+			action = getattr(sys.modules["tmp"], name, False)
+			if action: return action
+	return False
