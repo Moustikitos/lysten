@@ -36,7 +36,7 @@ if a check ends up with an error.
 
 This function is used in `main` to execute `codename`.
 
-`codename` is a function name to be search accross registered folder (default
+`codename` is a function name to be searched accross registered folder (default
 `site-actions`). This function takes a list of arguments extracted from `vendorField`
 using regular expressions (trigger `regex`).
 
@@ -47,7 +47,7 @@ def action(*args, **kw):
 ```
 where:
  + `args` are the arguments extracted from `vendorField`
- + `kw` is the transaction payload as `json`data
+ + `kw` is the transaction payload as `json` data
 
 ## Exemple
 
