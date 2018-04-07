@@ -179,7 +179,7 @@ def main():
 	LOCK = threading.Event()
 
 	LOCK.set()
-	# put False value to stop threads
+	# put boolean value to stop threads
 	for i in range(__CONFIG__.get("pool", 2)):
 		LIFO.put(True)
 
