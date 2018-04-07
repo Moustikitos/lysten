@@ -66,28 +66,19 @@ def getUnparsedBlocks():
 		return  []
 
 
-def markParsedBlocks(height, nb=0):
+def markLastParsedBlock(height, nb=0):
 	dumpJson({
 		"height":height,
 		"nbtx":nb
 	}, os.path.join(__ROOT__, "core.json"))
 
 
-def getUnparsedTransactions(*blocks):
-	pass 
-	
-## DOES NOT WORK !
-# blockid from height :		
-# http://209.250.233.136:4001/api/blocks?height=4032328
-# transactions from block:
-# http://209.250.233.136:4001/api/transactions?blockid=4366553906931540162
 def getTransactionsFromBlockHeight(height):
-	blocks = get("/api/blocks", height=height)
+	blocks = get("/api/blocks", height=height).get("blocks", [])
 	block = blocks[0] if len(blocks) else {}
 	if block.get("numberOfTransactions", 0) > 0:
-		return get("/api/transactions?", blockid=block.get("id")).get("transactions", [])
+		return get("/api/transactions?", blockId=block.get("id")).get("transactions", [])
 	return []
-#####
 
 
 def _cursor():
@@ -204,12 +195,12 @@ def main():
 	for height in getUnparsedBlocks():
 		for tx in getTransactionsFromBlockHeight(height):
 			# fill LIFO with smartBridge actions on tx send
-			for trigger in [trig for trig in s_triggers if tx["senderId"] == trigger["senderId"]]:
+			for trigger in [trig for trig in s_triggers if tx["senderId"] == trig["senderId"]]:
 				match = re.match(trigger["regex"], tx["vendorField"])
 				if match:
 					LIFO.put(dict(tx=tx, codename=trigger["codename"], args=match.groups()))
 			# fill LIFO with smartBridge actions on tx receive
-			for trigger in [trig for trig in r_triggers if tx["recipientId"] == trigger["recipientId"]]:
+			for trigger in [trig for trig in r_triggers if tx["recipientId"] == trig["recipientId"]]:
 				match = re.match(trigger["regex"], tx["vendorField"])
 				if match:
 					LIFO.put(dict(tx=tx, codename=trigger["codename"], args=match.groups()))
@@ -232,4 +223,4 @@ def main():
 		except queue.Empty:
 			LOCK.clear()
 
-	markParsedBlocks()
+	markLastParsedBlock()
