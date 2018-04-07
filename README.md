@@ -7,7 +7,6 @@ The lightest way to bridge something with ARK
 ### `lysten.core.setRecipientIdTrigger(recipientId, regex, codename)`
 
 A trigger relies on an account address and can be activated in two ways :
-
  + account receives a transaction
  + account sends a transaction
 
@@ -61,7 +60,14 @@ where:
 > height 3053604
 > send match on tx #96779951f0aff892d2cd50993ca13986f943bf3ec7206736206bb897b163e3b6
 > applying test with ('123',)...
-('123',) {'recipientId': 'DTywx2qNfefZZ2Z2bjbugQgUML7yhYEatX', 'id': '96779951f0aff892d2cd50993ca13986f943bf3ec7206736206bb897b163e3b6', 'blockid': '7367081023413534202', 'senderPublicKey': '02dcb94d73fb54e775f734762d26975d57f18980314f3b67bc52beb393893bc706', 'asset': {}, 'confirmations': 190, 'amount': 100000000, 'senderId': 'DKf1RUGCM3G3DxdE7V7DW7SFJ4Afmvb4YU', 'fee': 10000000, 'timestamp': 32996070, 'vendorField': 'arky 123 test de lysten', 'signature': '30440220615bf2309a78f520ef21102407007ae7b4cf5135bef4e97a41abad014c8040de022055e7e8215a855a6b5a570aa564566373b84684b127ef61cc981af53e683fcb61', 'type': 0}
+('123',) {'recipientId': 'DTywx2qNfefZZ2Z2bjbugQgUML7yhYEatX', 'id': '96779951f\
+0aff892d2cd50993ca13986f943bf3ec7206736206bb897b163e3b6', 'blockid': '736708102\
+3413534202', 'senderPublicKey': '02dcb94d73fb54e775f734762d26975d57f18980314f3b\
+67bc52beb393893bc706', 'asset': {}, 'confirmations': 190, 'amount': 100000000, \
+'senderId': 'DKf1RUGCM3G3DxdE7V7DW7SFJ4Afmvb4YU', 'fee': 10000000, 'timestamp':\
+ 32996070, 'vendorField': 'arky 123 test de lysten', 'signature': '30440220615b\
+f2309a78f520ef21102407007ae7b4cf5135bef4e97a41abad014c8040de022055e7e8215a855a6\
+b5a570aa564566373b84684b127ef61cc981af53e683fcb61', 'type': 0}
 > finalizing...
 > finished
 ```
