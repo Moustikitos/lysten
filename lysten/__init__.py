@@ -24,6 +24,7 @@ __SESSION__ = requests.Session()
 __DATABASE__.row_factory = sqlite3.Row
 __path__.append(os.path.join(__ROOT__, "site-actions"))
 
+
 def loadJson(path):
 	if os.path.exists(path):
 		with io.open(path) as in_:
@@ -56,11 +57,11 @@ def dumpConfig():
 
 def loadNetwork(name):
 	global __NETWORK__
-	__NETWORK__ = loadJson(os.path.join(__ROOT__, "%s.net" % name))
+	__NETWORK__ = loadJson(os.path.join(__ROOT__, "net", "%s.net" % name))
 	return __NETWORK__
 
 
-def connect(**network):
+def connect(network):
 	__NETWORK__.update(network)
 	__SESSION__.verify = os.path.join(__ROOT__, "cacert.pem") if __FROZEN__ else True
 	__SESSION__.headers.update({

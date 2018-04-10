@@ -52,6 +52,9 @@ where:
 ## Exemple
 
 ```python
+>>> import lysten
+>>> network = lysten.loadNetwork("dark")
+>>> lysten.connect(network)
 >>> from lysten import core
 >>> core.setSenderIdTrigger("DKf1RUGCM3G3DxdE7V7DW7SFJ4Afmvb4YU", "^arky *(\d*)[^\d].*", "test")
 >>> # DKf1RUGCM3G3DxdE7V7DW7SFJ4Afmvb4YU send transaction where vendorField='arky 123 test de lysten'

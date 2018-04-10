@@ -156,12 +156,12 @@ def consume(lifo, fifo, lock):
 			try:
 				result = loadAction(elem["codename"])(*elem["args"], **elem["tx"])
 			except Exception as e:
-				fifo.put(dict(timestamp=time.time(), status="error", tx=elem["tx"], codename=elem["codename"], args="%s:%s"%(e.__class__.__name__, e.args[0])))
+				fifo.put(dict(timestamp=int(time.time()), status="error", tx=elem["tx"], codename=elem["codename"], args="%s:%s"%(e.__class__.__name__, e.args[0])))
 			else:
 				if result != False:
-					fifo.put(dict(timestamp=time.time(), status="success", tx=elem["tx"], codename=elem["codename"], args="%r"%elem["args"]))
+					fifo.put(dict(timestamp=int(time.time()), status="success", tx=elem["tx"], codename=elem["codename"], args="%r"%elem["args"]))
 				else:
-					fifo.put(dict(timestamp=time.time(), status="fail", tx=elem["tx"], codename=elem["codename"], args="%r"%elem["args"]))
+					fifo.put(dict(timestamp=int(time.time()), status="fail", tx=elem["tx"], codename=elem["codename"], args="%r"%elem["args"]))
 		# if pulled element is False, unlock the while loop
 		else:
 			lock.clear()
