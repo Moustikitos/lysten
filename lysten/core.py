@@ -11,46 +11,72 @@ import threading
 
 import lysten
 from lysten import loadJson, dumpJson, loadAction
-	
+
+
+def revert(tx, secret, secondSecret=None, message=""):
+	keys = lysten.crypto.getKeys(secret)
+	if secondSecret:
+		keys["secondPrivateKey"] = lysten.crypto.getKeys(secondSecret)["privateKey"]
+
+	payload = dict([k,v] for k,v in tx.itemss() if k not in [
+		"requesterPublicKey",
+		"senderId",
+		"vendorField",
+		"signature",
+		"signSignature",
+		"id"
+	])
+
+	payload["vendorField"] = message
+	payload["amount"] = tx["amount"]-tx["fee"]
+	payload["recipientId"] = tx["senderId"]
+	payload["senderPublicKey"] = keys["publicKey"]
+	lysten.crypto.sign(payload, keys["privateKey"])
+	if secondPrivateKey:
+		lysten.crypto.sign(payload, keys["secondPrivateKey"])
+	lysten.crypto.mark(payload)
+	return payload
+
+
 def get(entrypoint, **kwargs):
-    """
-    Generic GET call using requests lib. It returns server response as dict object.
-    It randomly select one of peers registered in cfg.peers list. A custom peer can
-    be used.
+	"""
+	Generic GET call using requests lib. It returns server response as dict object.
+	It randomly select one of peers registered in cfg.peers list. A custom peer can
+	be used.
 
-    Argument:
-    entrypoint (str) -- entrypoint url path
+	Argument:
+	entrypoint (str) -- entrypoint url path
 
-    Keyword argument:
-    **kwargs -- api parameters as keyword argument
+	Keyword argument:
+	**kwargs -- api parameters as keyword argument
 
-    Return dict
-    """
-    # API response contains several fields and wanted one can be extracted using
-    # a returnKey that match the field name
-    return_key = kwargs.pop('returnKey', False)
-    peer = kwargs.pop('peer', False)
+	Return dict
+	"""
+	# API response contains several fields and wanted one can be extracted using
+	# a returnKey that match the field name
+	return_key = kwargs.pop('returnKey', False)
+	peer = kwargs.pop('peer', False)
 
-    params = {}
-    for key, val in kwargs.items():
-        params[key.replace('and_', 'AND:')] = val
+	params = {}
+	for key, val in kwargs.items():
+		params[key.replace('and_', 'AND:')] = val
 
-    peer = peer if peer else random.choice(lysten.__NETWORK__["peers"])
+	peer = peer if peer else random.choice(lysten.__NETWORK__["peers"])
 
-    try:
-        response = lysten.__SESSION__.get('{0}{1}'.format(peer, entrypoint), params=params)
-        data = response.json()
-    except Exception as error:
-        data = {"success": False, "error": error, "peer": peer}
-    else:
-        if return_key:
-            data = data[return_key]
+	try:
+		response = lysten.__SESSION__.get('{0}{1}'.format(peer, entrypoint), params=params)
+		data = response.json()
+	except Exception as error:
+		data = {"success": False, "error": error, "peer": peer}
+	else:
+		if return_key:
+			data = data[return_key]
 
-            if isinstance(data, dict):
-                for item in ["balance", "unconfirmedBalance", "vote"]:
-                    if item in data:
-                        data[item] = float(data[item]) / 100000000
-    return data
+			if isinstance(data, dict):
+				for item in ["balance", "unconfirmedBalance", "vote"]:
+					if item in data:
+						data[item] = float(data[item]) / 100000000
+	return data
 
 
 def getUnparsedBlocks():
@@ -172,9 +198,10 @@ def consume(lifo, fifo, lock):
 def finalize(timestamp, status, tx, codename, args):
 	storeSmartbridge(timestamp, status, tx["amount"], tx["id"], codename, args)
 	if status != "success":
-		return True #revertTx(tx)
-	else:
+		# payback = revert(tx, message="Payback : status=%s"%status)
 		return False
+	else:
+		return True
 
 
 def main():

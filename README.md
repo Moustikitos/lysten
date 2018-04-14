@@ -3,8 +3,9 @@ The lightest way to bridge something with ARK
 
 ## Setting a trigger
 
-### `lysten.core.setSenderIdTrigger(senderId, regex, codename)`
-### `lysten.core.setRecipientIdTrigger(recipientId, regex, codename)`
+**`lysten.core.setSenderIdTrigger(senderId, regex, codename)`**
+
+**`lysten.core.setRecipientIdTrigger(recipientId, regex, codename)`**
 
 A trigger relies on an account address and can be activated in two ways :
  + account receives a transaction
@@ -17,12 +18,13 @@ apatterned string backed in a `vendorField` transaction sent by a specified
 
 ## Removing a trigger
 
-### `lysten.core.unsetSenderIdTrigger(senderId, codename)`
-### `lysten.core.unsetRecipientIdTrigger(recipientId, codename)`
+**`lysten.core.unsetSenderIdTrigger(senderId, codename)`**
+
+**`lysten.core.unsetRecipientIdTrigger(recipientId, codename)`**
 
 ## Parsing blocks
 
-### `lysten.core.main()`
+**`lysten.core.main()`**
 
 The `main` function parses every transaction found in blocks generated since its
 last call. Because of block time parameter on DPOS BC, nothing could happen between
@@ -32,7 +34,7 @@ if a check ends up with an error.
 
 ## Action
 
-### `lysten.loadAction(codename)`
+**`lysten.loadAction(codename)`**
 
 This function is used in `main` to execute `codename`.
 

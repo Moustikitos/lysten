@@ -1,13 +1,42 @@
 # -*- coding:utf8 -*-
 import hashlib
+import binascii
 
 from ecdsa.keys import SigningKey, VerifyingKey
 from ecdsa.util import sigencode_der_canonize
 from ecdsa.curves import SECP256k1
 
-from lysten.crpt import pack, pack_bytes, hexlify, unhexlify
+from lysten.crpt import pack, pack_bytes, hexlify, unhexlify, basint
+from lysten.core import get
 
 from six import BytesIO
+
+
+def compressEcdsaPublicKey(pubkey):
+	first, last = pubkey[:32], pubkey[32:]
+	# check if last digit of second part is even (2%2 = 0, 3%2 = 1)
+	even = not bool(basint(last[-1]) % 2)
+	return (b"\x02" if even else b"\x03") + first
+
+
+def getKeys(secret, seed=None):
+	"""
+    Generate keyring containing public key, signing and checking keys as
+    attribute.
+
+    Keyword arguments:
+    secret (str or bytes) -- a human passphrase
+    seed (byte) -- a sha256 sequence bytes (private key actualy)
+
+    Return dict
+    """
+	seed = hashlib.sha256(secret.encode("utf8") if not isinstance(secret, bytes) else secret).digest() if not seed else seed
+	signingKey = SigningKey.from_secret_exponent(int(binascii.hexlify(seed), 16), SECP256k1, hashlib.sha256)
+	publicKey = signingKey.get_verifying_key().to_string()
+	return {
+		"publicKey": hexlify(compressEcdsaPublicKey(publicKey)),
+		"privateKey": hexlify(signingKey.to_string()),
+	}
 
 
 def getSignature(hexa, key):
@@ -82,12 +111,9 @@ def getHash(**tx):
 
 
 def sign(tx, key):
-    tx["signature"] = getSignature(getHash(**tx), key)
-
-
-def signSign(tx, key):
-    tx["signSignature"] = getSignature(getHash(**tx), key)
+	tx["signSignature" if "signature" in tx else "signature"] = getSignature(getHash(**tx), key)
 
 
 def mark(tx):
-    tx["id"] = hexlify(hashlib.sha256(getHash(**tx)).digest())
+	tx["id"] = hexlify(hashlib.sha256(getHash(**tx)).digest())
+

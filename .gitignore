@@ -149,3 +149,4 @@ $RECYCLE.BIN/
 .vscode/
 *.db
 *.json
+*.sign/

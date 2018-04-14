@@ -11,8 +11,9 @@ import sqlite3
 import datetime
 import requests
 
+from importlib import import_module
 
-__VERSION__ = "0.1.0"
+__VERSION__ = "0.1.1"
 
 __PY3__ = True if sys.version_info[0] >= 3 else False
 __FROZEN__ = hasattr(sys, "frozen") or hasattr(sys, "importers") or imp.is_frozen("__main__")
@@ -60,6 +61,13 @@ def dumpConfig():
 def loadNetwork(name):
 	global __NETWORK__
 	__NETWORK__ = loadJson(os.path.join(__ROOT__, "net", "%s.net" % name))
+	# loads blockchain family package into as arky core
+	sys.modules[__package__].crypto = import_module('lysten.crpt.{0}'.format(name))
+	try:
+		# delete real package name loaded (to keep namespace clear)
+		sys.modules[__package__].__delattr__(name)
+	except AttributeError:
+		pass
 	return __NETWORK__
 
 
@@ -91,10 +99,11 @@ def loadAction(name):
 
 def getTimestamp(time=None):
 	delta = (datetime.datetime.now(pytz.UTC) if not time else time) - \
-	        datetime.datetime(*__NETWORK__["begin"], tzinfo=pytz.UTC)
+			datetime.datetime(*__NETWORK__["begin"], tzinfo=pytz.UTC)
 	return int(delta.total_seconds())
+
 
 def getRealTime(epoch=None):
 	epoch = getTimestamp() if epoch == None else epoch
 	return datetime.datetime(*__NETWORK__["begin"], tzinfo=pytz.UTC) + \
-	       datetime.timedelta(seconds=epoch)
+		   datetime.timedelta(seconds=epoch)
