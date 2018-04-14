@@ -5,8 +5,10 @@ import io
 import os
 import sys
 import imp
+import pytz
 import json
 import sqlite3
+import datetime
 import requests
 
 
@@ -85,3 +87,14 @@ def loadAction(name):
 				if action:
 					return action
 	return False
+
+
+def getTimestamp(time=None):
+	delta = (datetime.datetime.now(pytz.UTC) if not time else time) - \
+	        datetime.datetime(*__NETWORK__["begin"], tzinfo=pytz.UTC)
+	return int(delta.total_seconds())
+
+def getRealTime(epoch=None):
+	epoch = getTimestamp() if epoch == None else epoch
+	return datetime.datetime(*__NETWORK__["begin"], tzinfo=pytz.UTC) + \
+	       datetime.timedelta(seconds=epoch)

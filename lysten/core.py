@@ -1,8 +1,5 @@
 # -*- coding:utf8 -*-
 
-from lysten import __ROOT__, __CONFIG__, __SESSION__, __DATABASE__, __NETWORK__
-from lysten import loadJson, dumpJson, loadAction
-
 import os
 import re
 import sys
@@ -12,6 +9,8 @@ import random
 import sqlite3
 import threading
 
+import lysten
+from lysten import loadJson, dumpJson, loadAction
 	
 def get(entrypoint, **kwargs):
     """
@@ -36,10 +35,10 @@ def get(entrypoint, **kwargs):
     for key, val in kwargs.items():
         params[key.replace('and_', 'AND:')] = val
 
-    peer = peer if peer else random.choice(__NETWORK__["peers"])
+    peer = peer if peer else random.choice(lysten.__NETWORK__["peers"])
 
     try:
-        response = __SESSION__.get('{0}{1}'.format(peer, entrypoint), params=params)
+        response = lysten.__SESSION__.get('{0}{1}'.format(peer, entrypoint), params=params)
         data = response.json()
     except Exception as error:
         data = {"success": False, "error": error, "peer": peer}
@@ -55,7 +54,10 @@ def get(entrypoint, **kwargs):
 
 
 def getUnparsedBlocks():
-	statuspath = os.path.join(__ROOT__, "core.json")
+	"""
+	Return unparsed block-height list.
+	"""
+	statuspath = os.path.join(lysten.__ROOT__, "core.json")
 	status = loadJson(statuspath)
 	height = status.get("height", -1)
 	last_height = get("/api/blocks/getHeight").get("height", 0)
@@ -72,7 +74,7 @@ def markLastParsedBlock(height, nb=0):
 	dumpJson({
 		"height":height,
 		"nbtx":nb
-	}, os.path.join(__ROOT__, "core.json"))
+	}, os.path.join(lysten.__ROOT__, "core.json"))
 
 
 def getTransactionsFromBlockHeight(height):
@@ -87,7 +89,7 @@ def _cursor():
 	"""
 	Check if needed table exists and return database cursor.
 	"""
-	cursor = __DATABASE__.cursor()
+	cursor = lysten.__DATABASE__.cursor()
 	try:
 		cursor.execute("CREATE TABLE executed(timestamp INTEGER, status TEXT, amount INTEGER, txid TEXT, codename TEXT, message TEXT);")
 		cursor.execute("CREATE TABLE send_trigger(senderId TEXT, regex TEXT, codename TEXT, fees REAL);")
@@ -104,7 +106,7 @@ def storeSmartbridge(timestamp, status, amount, txid, codename, message):
 		"INSERT OR REPLACE INTO executed(timestamp, status, amount, txid, codename, message) VALUES(?,?, ?,?,?,?);",
 		(timestamp, status, amount, txid, codename, message)
 	)
-	__DATABASE__.commit()
+	lysten.__DATABASE__.commit()
 
 
 def setSenderIdTrigger(senderId, regex, codename, fees=0.01):
@@ -112,7 +114,7 @@ def setSenderIdTrigger(senderId, regex, codename, fees=0.01):
 		"INSERT OR REPLACE INTO send_trigger(senderId, regex, codename, fees) VALUES(?,?,?,?);",
 		(senderId, regex, codename, fees)
 	)
-	__DATABASE__.commit()
+	lysten.__DATABASE__.commit()
 
 
 def unsetSenderIdTrigger(senderId, codename):
@@ -120,7 +122,7 @@ def unsetSenderIdTrigger(senderId, codename):
 		"DELETE FROM send_trigger WHERE senderID=? AND codename=?;",
 		(senderId, codename)
 	)
-	__DATABASE__.commit()
+	lysten.__DATABASE__.commit()
 
 
 def getSenderIdTriggers():
@@ -132,7 +134,7 @@ def setRecipientIdTrigger(recipientId, regex, codename, fees=0.01):
 		"INSERT OR REPLACE INTO receive_trigger(recipientId, regex, codename, fees) VALUES(?,?,?,?);",
 		(recipientId, regex, codename, fees)
 	)
-	__DATABASE__.commit()
+	lysten.__DATABASE__.commit()
 
 
 def unsetRecipientIdTrigger(recipientId, codename):
@@ -140,7 +142,7 @@ def unsetRecipientIdTrigger(recipientId, codename):
 		"DELETE FROM receive_trigger WHERE recipientId=? AND codename=?;",
 		(recipientId, codename)
 	)
-	__DATABASE__.commit()
+	lysten.__DATABASE__.commit()
 
 
 def getRecipientIdTriggers():
@@ -184,7 +186,7 @@ def main():
 
 	LOCK.set()
 	# put boolean value to stop threads
-	for i in range(__CONFIG__.get("pool", 2)):
+	for i in range(lysten.__CONFIG__.get("pool", 2)):
 		LIFO.put(True)
 
 	# get all available triggers
@@ -215,7 +217,7 @@ def main():
 
 	# launch pool of consumers
 	threads = []
-	for i in range(__CONFIG__.get("pool", 2)):
+	for i in range(lysten.__CONFIG__.get("pool", 2)):
 		t = threading.Thread(target=consume, args=(LIFO, FIFO, LOCK))
 		t.start()
 		threads.append(t)
