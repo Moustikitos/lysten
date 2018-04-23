@@ -1,4 +1,5 @@
-# -*- coding:utf8 -*-
+# -*- coding:utf-8 -*-
+# (c) Toons 2018
 
 import os
 import io

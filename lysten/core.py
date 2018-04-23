@@ -13,29 +13,29 @@ import lysten
 from lysten import loadJson, dumpJson, loadAction
 
 
-def revert(tx, secret, secondSecret=None, message=""):
-	keys = lysten.crypto.getKeys(secret)
-	if secondSecret:
-		keys["secondPrivateKey"] = lysten.crypto.getKeys(secondSecret)["privateKey"]
+# def revert(tx, secret, secondSecret=None, message=""):
+# 	keys = lysten.crypto.getKeys(secret)
+# 	if secondSecret:
+# 		keys["secondPrivateKey"] = lysten.crypto.getKeys(secondSecret)["privateKey"]
 
-	payload = dict([k,v] for k,v in tx.itemss() if k not in [
-		"requesterPublicKey",
-		"senderId",
-		"vendorField",
-		"signature",
-		"signSignature",
-		"id"
-	])
+# 	payload = dict([k,v] for k,v in tx.itemss() if k not in [
+# 		"requesterPublicKey",
+# 		"senderId",
+# 		"vendorField",
+# 		"signature",
+# 		"signSignature",
+# 		"id"
+# 	])
 
-	payload["vendorField"] = message
-	payload["amount"] = tx["amount"]-tx["fee"]
-	payload["recipientId"] = tx["senderId"]
-	payload["senderPublicKey"] = keys["publicKey"]
-	lysten.crypto.sign(payload, keys["privateKey"])
-	if secondPrivateKey:
-		lysten.crypto.sign(payload, keys["secondPrivateKey"])
-	lysten.crypto.mark(payload)
-	return payload
+# 	payload["vendorField"] = message
+# 	payload["amount"] = tx["amount"]-tx["fee"]
+# 	payload["recipientId"] = tx["senderId"]
+# 	payload["senderPublicKey"] = keys["publicKey"]
+# 	lysten.crypto.sign(payload, keys["privateKey"])
+# 	if secondPrivateKey:
+# 		lysten.crypto.sign(payload, keys["secondPrivateKey"])
+# 	lysten.crypto.mark(payload)
+# 	return payload
 
 
 def get(entrypoint, **kwargs):
@@ -88,12 +88,11 @@ def getUnparsedBlocks():
 	height = status.get("height", -1)
 	last_height = get("/api/blocks/getHeight").get("height", 0)
 	if height < 0:
-		markParsedBlocks(last_height)
+		markLastParsedBlock(last_height)
 	elif height < last_height:
 		diff = last_height - height
 		return [height + i for i in range(1, diff+1, 1)]
-	else:
-		return  []
+	return  []
 
 
 def markLastParsedBlock(height, nb=0):
@@ -101,6 +100,12 @@ def markLastParsedBlock(height, nb=0):
 		"height":height,
 		"nbtx":nb
 	}, os.path.join(lysten.__ROOT__, "core.json"))
+
+
+def initializeHeight(height=None):
+	heights = getUnparsedBlocks() if not height else [height]
+	if len(heights):
+		markLastParsedBlock(max(heights))
 
 
 def getTransactionsFromBlockHeight(height):
@@ -111,11 +116,14 @@ def getTransactionsFromBlockHeight(height):
 	return []
 
 
-def _cursor():
+def _database():
 	"""
 	Check if needed table exists and return database cursor.
 	"""
-	cursor = lysten.__DATABASE__.cursor()
+	database = sqlite3.connect(os.path.join(lysten.__ROOT__, "lysten.db"))
+	database.row_factory = sqlite3.Row
+
+	cursor = database.cursor()
 	try:
 		cursor.execute("CREATE TABLE executed(timestamp INTEGER, status TEXT, amount INTEGER, txid TEXT, codename TEXT, message TEXT);")
 		cursor.execute("CREATE TABLE send_trigger(senderId TEXT, regex TEXT, codename TEXT, fees REAL);")
@@ -124,55 +132,60 @@ def _cursor():
 		cursor.execute("CREATE UNIQUE INDEX receive_idx ON receive_trigger(recipientId, codename);")
 	except sqlite3.Error as error:
 		pass
-	return cursor
+	return database
 
 
 def storeSmartbridge(timestamp, status, amount, txid, codename, message):
-	_cursor().execute(
+	db = _database()
+	db.cursor().execute(
 		"INSERT OR REPLACE INTO executed(timestamp, status, amount, txid, codename, message) VALUES(?,?, ?,?,?,?);",
 		(timestamp, status, amount, txid, codename, message)
 	)
-	lysten.__DATABASE__.commit()
+	db.commit()
 
 
 def setSenderIdTrigger(senderId, regex, codename, fees=0.01):
-	_cursor().execute(
+	db = _database()
+	db.cursor().execute(
 		"INSERT OR REPLACE INTO send_trigger(senderId, regex, codename, fees) VALUES(?,?,?,?);",
 		(senderId, regex, codename, fees)
 	)
-	lysten.__DATABASE__.commit()
+	db.commit()
 
 
 def unsetSenderIdTrigger(senderId, codename):
-	_cursor().execute(
+	db = _database()
+	db.cursor().execute(
 		"DELETE FROM send_trigger WHERE senderID=? AND codename=?;",
 		(senderId, codename)
 	)
-	lysten.__DATABASE__.commit()
+	db.commit()
 
 
 def getSenderIdTriggers():
-	return _cursor().execute("SELECT * FROM send_trigger;").fetchall()
+	return _database().cursor().execute("SELECT * FROM send_trigger;").fetchall()
 
 
 def setRecipientIdTrigger(recipientId, regex, codename, fees=0.01):
-	_cursor().execute(
+	db = _database()
+	db.cursor().execute(
 		"INSERT OR REPLACE INTO receive_trigger(recipientId, regex, codename, fees) VALUES(?,?,?,?);",
 		(recipientId, regex, codename, fees)
 	)
-	lysten.__DATABASE__.commit()
+	db.commit()
 
 
 def unsetRecipientIdTrigger(recipientId, codename):
-	_cursor().execute(
+	db = _database()
+	db.cursor().execute(
 		"DELETE FROM receive_trigger WHERE recipientId=? AND codename=?;",
 		(recipientId, codename)
 	)
-	lysten.__DATABASE__.commit()
+	db.commit()
 
 
 def getRecipientIdTriggers():
-	return _cursor().execute("SELECT * FROM receive_trigger;").fetchall()
+	return _database().cursor().execute("SELECT * FROM receive_trigger;").fetchall()
 
 
 def consume(lifo, fifo, lock):
@@ -180,7 +193,7 @@ def consume(lifo, fifo, lock):
 		elem = lifo.get(True)
 		# if pulled elem is a dictionary
 		if isinstance(elem, dict):
-			sys.stdout.write("> applying %s with %r...\n" % (elem["codename"], elem["args"]))
+			# sys.stdout.write("> applying %s with %r...\n" % (elem["codename"], elem["args"]))
 			try:
 				result = loadAction(elem["codename"])(*elem["args"], **elem["tx"])
 			except Exception as e:
@@ -205,7 +218,7 @@ def finalize(timestamp, status, tx, codename, args):
 
 
 def main():
-	sys.stdout.write("> starting block parsing...\n")
+	# sys.stdout.write("> starting block parsing...\n")
 	# needed data
 	FIFO = queue.Queue()
 	LIFO = queue.LifoQueue()
@@ -227,19 +240,19 @@ def main():
 	# its the arguments parsed from the vendorField value according to registered regex
 	unparsed_blocks = getUnparsedBlocks()
 	for height in unparsed_blocks:
-		sys.stdout.write("> height %d\n" % height)
+		# sys.stdout.write("> height %d\n" % height)
 		for tx in getTransactionsFromBlockHeight(height):
 			# fill LIFO with smartBridge actions on tx send
 			for trigger in [trig for trig in s_triggers if tx["senderId"] == trig["senderId"]]:
 				match = re.match(trigger["regex"], tx["vendorField"])
 				if match:
-					sys.stdout.write("> send match on tx #%s\n" % tx["id"])
+					# sys.stdout.write("> send match on tx #%s\n" % tx["id"])
 					LIFO.put(dict(tx=tx, codename=trigger["codename"], args=match.groups()))
 			# fill LIFO with smartBridge actions on tx receive
 			for trigger in [trig for trig in r_triggers if tx["recipientId"] == trig["recipientId"]]:
 				match = re.match(trigger["regex"], tx["vendorField"])
 				if match:
-					sys.stdout.write("> receive match on tx #%s\n" % tx["id"])
+					# sys.stdout.write("> receive match on tx #%s\n" % tx["id"])
 					LIFO.put(dict(tx=tx, codename=trigger["codename"], args=match.groups()))
 
 	# launch pool of consumers
@@ -256,7 +269,7 @@ def main():
 
 	# manage data found in the FIFO
 	LOCK.set()
-	sys.stdout.write("> finalizing...\n")
+	# sys.stdout.write("> finalizing...\n")
 	while LOCK.is_set():
 		elem = FIFO.get()
 		if isinstance(elem, dict):
@@ -267,4 +280,4 @@ def main():
 	# save the last parsed block
 	if len(unparsed_blocks):
 		markLastParsedBlock(max(unparsed_blocks))
-	sys.stdout.write("> finished\n")
+	# sys.stdout.write("> finished\n")

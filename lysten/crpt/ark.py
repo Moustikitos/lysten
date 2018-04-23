@@ -2,6 +2,10 @@
 import hashlib
 import binascii
 
+from six import BytesIO
+
+from ecdsa import BadSignatureError
+from ecdsa.der import UnexpectedDER
 from ecdsa.keys import SigningKey, VerifyingKey
 from ecdsa.util import sigencode_der_canonize
 from ecdsa.curves import SECP256k1
@@ -9,14 +13,25 @@ from ecdsa.curves import SECP256k1
 from lysten.crpt import pack, pack_bytes, hexlify, unhexlify, basint
 from lysten.core import get
 
-from six import BytesIO
-
 
 def compressEcdsaPublicKey(pubkey):
 	first, last = pubkey[:32], pubkey[32:]
 	# check if last digit of second part is even (2%2 = 0, 3%2 = 1)
 	even = not bool(basint(last[-1]) % 2)
 	return (b"\x02" if even else b"\x03") + first
+
+
+def uncompressEcdsaPublicKey(pubkey):
+	# read more : https://bitcointalk.org/index.php?topic=644919.msg7205689#msg7205689
+	p = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f
+	y_parity = int(pubkey[:2]) - 2
+	x = int(pubkey[2:], 16)
+	a = (pow(x, 3, p) + 7) % p
+	y = pow(a, (p + 1) // 4, p)
+	if y % 2 != y_parity:
+		y = -y % p
+	# return result as der signature (no 0x04 preffix)
+	return '{:x}{:x}'.format(x, y)
 
 
 def getKeys(secret, seed=None):
@@ -51,6 +66,27 @@ def getSignature(hexa, key):
 	"""
 	signingKey = SigningKey.from_string(unhexlify(key), SECP256k1, hashlib.sha256)
 	return hexlify(signingKey.sign_deterministic(unhexlify(hexa), hashlib.sha256, sigencode=sigencode_der_canonize))
+
+
+def verifySignatureFromBytes(data, publicKey, signature):
+	"""
+	Verify signature.
+
+	Arguments:
+	data (str) -- data as hex string
+	publicKey (str) -- a public key as hex string
+	signature (str) -- a signature as hex string
+
+	Return bool
+	"""
+	if len(publicKey) == 66:
+		publicKey = uncompressEcdsaPublicKey(publicKey)
+	verifyingKey = VerifyingKey.from_string(unhexlify(publicKey), SECP256k1, hashlib.sha256)
+	try:
+		verifyingKey.verify(unhexlify(signature), unhexlify(data), hashlib.sha256, sigdecode_der)
+	except (BadSignatureError, UnexpectedDER):
+		return False
+	return True
 
 
 def getHash(**tx):
