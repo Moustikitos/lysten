@@ -101,9 +101,9 @@ Options:
   --version             show program's version number and exit
   -h, --help            show this help message and exit
   -n NETWORK, --network=NETWORK
-                        select blockchain network [default: dark]
-  -b DELAY, --delay=DELAY
-                        define the delay between each main call [default: 1]
+                        select blockchain network [current: dark]
+  -d DELAY, --delay=DELAY
+                        define the delay between each main call [current: 1]
   -i INITIAL_HEIGHT, --initial-height=INITIAL_HEIGHT
                         define the initial block height to start from
   -r, --reset-height    start from the curent block height

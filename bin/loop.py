@@ -72,8 +72,8 @@ if __name__ == "__main__":
 	data = loadJson(CONFIG)
 
 	parser = optparse.OptionParser(usage="%prog [options] [forever/stop/restart]", version="%prog 1.0")
-	parser.add_option("-n", "--network", dest="network", type="string", default=data.get("network", "dark"), help="select blockchain network [default: %default]")
-	parser.add_option("-d", "--delay", dest="delay", type="int", default=data.get("delay", 1), help="define the delay between each main call [default: %default]")
+	parser.add_option("-n", "--network", dest="network", type="string", default=data.get("network", "dark"), help="select blockchain network [current: %default]")
+	parser.add_option("-d", "--delay", dest="delay", type="int", default=data.get("delay", 1), help="define the delay between each main call [current: %default]")
 	parser.add_option("-i", "--initial-height", dest="initial_height", type="int", default=None, help="define the initial block height to start from")
 	parser.add_option("-r", "--reset-height", dest="reset_height", action="store_true", default=False, help="start from the curent block height")
 	
