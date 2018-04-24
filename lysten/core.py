@@ -261,13 +261,23 @@ def main():
 		markLastParsedBlock(max(unparsed_blocks))
 
 	# launch pool of consumers
+	# processes = []
 	threads = []
 	for i in range(lysten.__CONFIG__.get("pool", 2)):
+		# p = multiprocessing.Process(target=consume, args=(LIFO, FIFO, LOCK))
+		# p.start()
+		# processes.append(p)
+
 		t = threading.Thread(target=consume, args=(LIFO, FIFO, LOCK))
 		t.start()
 		threads.append(t)
-	# wait till all threads finished
+
+	# # wait till all processes finished
+	# for p in processes: p.join()
+
+	# # wait till all threads finished
 	for t in threads: t.join()
+
 	# put boolean value to stop threads
 	FIFO.put(True)
  

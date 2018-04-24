@@ -72,13 +72,18 @@ if __name__ == "__main__":
 	data = loadJson(CONFIG)
 
 	parser = optparse.OptionParser(usage="%prog [options] [forever/stop/restart]", version="%prog 1.0")
-	parser.add_option("-n", "--network", dest="network", type="string", default="dark", help="select blockchain network [default: %default]")
-	parser.add_option("-b", "--delay", dest="delay", type="int", default=1, help="define the delay between each main call [default: %default]")
+	parser.add_option("-n", "--network", dest="network", type="string", default=data.get("network", "dark"), help="select blockchain network [default: %default]")
+	parser.add_option("-d", "--delay", dest="delay", type="int", default=data.get("delay", 1), help="define the delay between each main call [default: %default]")
 	parser.add_option("-i", "--initial-height", dest="initial_height", type="int", default=None, help="define the initial block height to start from")
 	parser.add_option("-r", "--reset-height", dest="reset_height", action="store_true", default=False, help="start from the curent block height")
+	
 	options, args = parser.parse_args()
+	data["network"] = options.network
+	data["delay"] = options.delay
+	dumpJson(data, CONFIG)
 
-	loadNetwork(options.network)
+	loadNetwork(data["network"])
+
 	status = os.path.join(__ROOT__, "core.json")
 	if options.initial_height:
 		initializeHeight(options.initial_height)
@@ -87,19 +92,7 @@ if __name__ == "__main__":
 			os.remove(status)
 		initializeHeight(None)
 
-	if len(args) == 0:
-		data["network"] = options.network
-		data["delay"] = options.delay
-		dumpJson(data, CONFIG)
-
-	elif len(args) == 1:
-		if options.network != data["network"]:
-			data["network"] = options.network
-			initializeHeight(None)
-		if options.delay != data["delay"]:
-			data["delay"] = options.delay
-		dumpJson(data, CONFIG)
-
+	if len(args) == 1:
 		if args[-1] in ["restart", "forever", "stop"]:
 			getattr(sys.modules[__name__], args[-1])()
 		else:
