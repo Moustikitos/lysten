@@ -77,6 +77,38 @@ b5a570aa564566373b84684b127ef61cc981af53e683fcb61', 'type': 0}
 > finished
 ```
 
+## Using `loop.py`
+
+**`loop.forever()`**
+
+Launches `lysten.core.main()` every interval (default 1s) until `loop.stop()` is
+called.
+
+**`loop.restart()`**
+
+Restarts the forever loop. My be used for memory and cpu stability.
+
+**`loop.stop()`**
+
+Stops the `loop.forever()` loop.
+
+**Command line use**
+
+```
+Usage: loop.py [options] [forever/stop/restart]
+
+Options:
+  --version             show program's version number and exit
+  -h, --help            show this help message and exit
+  -n NETWORK, --network=NETWORK
+                        select blockchain network [default: dark]
+  -b DELAY, --delay=DELAY
+                        define the delay between each main call [default: 1]
+  -i INITIAL_HEIGHT, --initial-height=INITIAL_HEIGHT
+                        define the initial block height to start from
+  -r, --reset-height    start from the curent block height
+```
+
 ## Versions
 
 ### 0.1.0 : First functional release

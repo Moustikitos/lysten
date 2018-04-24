@@ -50,11 +50,11 @@ def forever():
 		if stop_asked():
 			break
 		else:
-			time.sleep(data.get("blocktime", 1))
+			time.sleep(data.get("delay", 1))
 			threading.Thread(target=call, args=(main,)).start()
 	sys.stdout.write(">>> finishing remaining tasks...\n")
 	while len(threading.enumerate()) > 1:
-		time.sleep(data.get("blocktime", 1))
+		time.sleep(data.get("delay", 1))
 	sys.stdout.write(">>> forever stoped !\n")
 	stop_done()
 
@@ -63,7 +63,7 @@ def restart():
 	data = loadJson(CONFIG)
 	stop()
 	while stop_asked():
-		time.sleep(data.get("blocktime", 1))
+		time.sleep(data.get("delay", 1))
 	forever()
 
 
@@ -71,11 +71,11 @@ if __name__ == "__main__":
 	import optparse
 	data = loadJson(CONFIG)
 
-	parser = optparse.OptionParser()
-	parser.add_option("-n", "--network", dest="network", type="string", default="dark")
-	parser.add_option("-b", "--blocktime", dest="blocktime", type="int", default=1)
-	parser.add_option("-i", "--initial-height", dest="initial_height", type="int", default=None)
-	parser.add_option("-r", "--reset-height", dest="reset_height", action="store_true", default=False)
+	parser = optparse.OptionParser(usage="%prog [options] [forever/stop/restart]", version="%prog 1.0")
+	parser.add_option("-n", "--network", dest="network", type="string", default="dark", help="select blockchain network [default: %default]")
+	parser.add_option("-b", "--delay", dest="delay", type="int", default=1, help="define the delay between each main call [default: %default]")
+	parser.add_option("-i", "--initial-height", dest="initial_height", type="int", default=None, help="define the initial block height to start from")
+	parser.add_option("-r", "--reset-height", dest="reset_height", action="store_true", default=False, help="start from the curent block height")
 	options, args = parser.parse_args()
 
 	loadNetwork(options.network)
@@ -89,18 +89,22 @@ if __name__ == "__main__":
 
 	if len(args) == 0:
 		data["network"] = options.network
-		data["blocktime"] = options.blocktime
+		data["delay"] = options.delay
 		dumpJson(data, CONFIG)
+
 	elif len(args) == 1:
 		if options.network != data["network"]:
 			data["network"] = options.network
 			initializeHeight(None)
-			dumpJson(data, CONFIG)
-			initializeHeight(None)
-		if args[-1] in ["init", "restart", "forever", "stop"]:
+		if options.delay != data["delay"]:
+			data["delay"] = options.delay
+		dumpJson(data, CONFIG)
+
+		if args[-1] in ["restart", "forever", "stop"]:
 			getattr(sys.modules[__name__], args[-1])()
 		else:
 			sys.stdout.write("%s command does not exist\n" % args[-1])
+
 	else:
 		raise Exception("only one command can be performed")
 
