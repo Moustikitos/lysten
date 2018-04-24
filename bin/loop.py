@@ -87,11 +87,16 @@ if __name__ == "__main__":
 			os.remove(status)
 		initializeHeight(None)
 
-	data["network"] = options.network
-	data["blocktime"] = options.blocktime
-	dumpJson(data, CONFIG)
-
-	if len(args) == 1:
+	if len(args) == 0:
+		data["network"] = options.network
+		data["blocktime"] = options.blocktime
+		dumpJson(data, CONFIG)
+	elif len(args) == 1:
+		if options.network != data["network"]:
+			data["network"] = options.network
+			initializeHeight(None)
+			dumpJson(data, CONFIG)
+			initializeHeight(None)
 		if args[-1] in ["init", "restart", "forever", "stop"]:
 			getattr(sys.modules[__name__], args[-1])()
 		else:

@@ -239,6 +239,7 @@ def main():
 	# in the LIFO queue, push a dict containing, the tx, the function codename to execute and give
 	# its the arguments parsed from the vendorField value according to registered regex
 	unparsed_blocks = getUnparsedBlocks()
+
 	for height in unparsed_blocks:
 		# sys.stdout.write("> height %d\n" % height)
 		for tx in getTransactionsFromBlockHeight(height):
@@ -254,6 +255,10 @@ def main():
 				if match:
 					# sys.stdout.write("> receive match on tx #%s\n" % tx["id"])
 					LIFO.put(dict(tx=tx, codename=trigger["codename"], args=match.groups()))
+
+	# save the last parsed block
+	if len(unparsed_blocks):
+		markLastParsedBlock(max(unparsed_blocks))
 
 	# launch pool of consumers
 	threads = []
@@ -277,7 +282,4 @@ def main():
 		else:
 			LOCK.clear()
 
-	# save the last parsed block
-	if len(unparsed_blocks):
-		markLastParsedBlock(max(unparsed_blocks))
 	# sys.stdout.write("> finished\n")
