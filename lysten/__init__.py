@@ -18,12 +18,12 @@ __VERSION__ = "0.1.1"
 __PY3__ = True if sys.version_info[0] >= 3 else False
 __FROZEN__ = hasattr(sys, "frozen") or hasattr(sys, "importers") or imp.is_frozen("__main__")
 __ROOT__ = os.path.abspath(os.path.dirname(sys.executable) if __FROZEN__ else __path__[0])
+__path__.append(os.path.join(__ROOT__, "site-actions"))
 
 __NETWORK__ = {}
 __CONFIG__ = {"path":__path__[1:]}
 __SESSION__ = requests.Session()
 
-__path__.append(os.path.join(__ROOT__, "site-actions"))
 
 
 def loadJson(path):
@@ -80,7 +80,9 @@ def connect(network):
 
 
 def loadAction(name):
+	print(__CONFIG__)
 	for path in __CONFIG__["path"]:
+		
 		pathes = [os.path.join(path, mod) for mod in os.listdir(path)]
 		for module in [m for m in pathes if os.path.isfile(m) and os.path.splitext(m)[-1] in [".py", ".pyw"]]:
 			_name = module.replace(os.sep, ":")

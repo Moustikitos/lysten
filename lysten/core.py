@@ -8,6 +8,7 @@ import queue
 import random
 import sqlite3
 import threading
+# import multiprocessing
 
 import lysten
 from lysten import loadJson, dumpJson, loadAction
@@ -188,108 +189,82 @@ def getRecipientIdTriggers():
 	return _database().cursor().execute("SELECT * FROM receive_trigger;").fetchall()
 
 
-def consume(lifo, fifo, lock):
-	while lock.is_set():
-		elem = lifo.get(True)
-		# if pulled elem is a dictionary
-		if isinstance(elem, dict):
-			# sys.stdout.write("> applying %s with %r...\n" % (elem["codename"], elem["args"]))
-			try:
-				result = loadAction(elem["codename"])(*elem["args"], **elem["tx"])
-			except Exception as e:
-				fifo.put(dict(timestamp=int(time.time()), status="error", tx=elem["tx"], codename=elem["codename"], args="%s:%s"%(e.__class__.__name__, e.args[0])))
+def initialize(height, s_triggers, r_triggers, fifo, stdout):
+	stdout.write("> searching tx on block #%s\n" % height)
+	
+	def execute(codename, *args, **tx):
+		try:
+			func = loadAction(codename)
+			if not func:
+				raise Exception("codename does not exists")
 			else:
-				if result != False:
-					fifo.put(dict(timestamp=int(time.time()), status="success", tx=elem["tx"], codename=elem["codename"], args="%r"%elem["args"]))
-				else:
-					fifo.put(dict(timestamp=int(time.time()), status="fail", tx=elem["tx"], codename=elem["codename"], args="%r"%elem["args"]))
-		# if pulled element is False, unlock the while loop
+				result = func(*args, **tx)
+		except Exception as e:
+			fifo.put(dict(
+				timestamp=int(time.time()),
+				status="error",
+				tx=tx,
+				codename=codename,
+				args="%s:%s"%(e.__class__.__name__, e.args[0])
+			))
 		else:
-			lock.clear()
+			if result != False:
+				fifo.put(dict(
+					timestamp=int(time.time()),
+					status="success",
+					tx=tx,
+					codename=codename,
+					args="%r"%args
+				))
+			else:
+				fifo.put(dict(
+					timestamp=int(time.time()),
+					status="fail",
+					tx=tx,
+					codename=codename,
+					args="%r"%args
+				))
+
+	for tx in getTransactionsFromBlockHeight(height):
+		triggers = [trig for trig in s_triggers if tx["senderId"] == trig["senderId"]] +\
+			       [trig for trig in r_triggers if tx["recipientId"] == trig["recipientId"]]
+		for trigger in triggers:
+			match = re.match(trigger["regex"], tx["vendorField"])
+			if match:
+				stdout.write("> match on tx #%s\n" % tx["id"])
+				execute(trigger["codename"], *match.groups(), **tx)
 
 
 def finalize(timestamp, status, tx, codename, args):
 	storeSmartbridge(timestamp, status, tx["amount"], tx["id"], codename, args)
-	if status != "success":
-		# payback = revert(tx, message="Payback : status=%s"%status)
-		return False
-	else:
-		return True
+	return False if status != "success" else True
 
 
 def main():
-	# sys.stdout.write("> starting block parsing...\n")
-	# needed data
-	FIFO = queue.Queue()
-	LIFO = queue.LifoQueue()
+
 	LOCK = threading.Event()
+	FIFO = queue.Queue()
 
-	LOCK.set()
-	# put boolean value to stop threads
-	for i in range(lysten.__CONFIG__.get("pool", 2)):
-		LIFO.put(True)
-
-	# get all available triggers
 	# when listening to account sending smartBridge tx
 	s_triggers = getSenderIdTriggers()
 	# when listening to account receiving smartbridget tx
 	r_triggers = getRecipientIdTriggers()
 
-	# producer loop
-	# in the LIFO queue, push a dict containing, the tx, the function codename to execute and give
-	# its the arguments parsed from the vendorField value according to registered regex
 	unparsed_blocks = getUnparsedBlocks()
 
 	for height in unparsed_blocks:
-		# sys.stdout.write("> height %d\n" % height)
-		for tx in getTransactionsFromBlockHeight(height):
-			# fill LIFO with smartBridge actions on tx send
-			for trigger in [trig for trig in s_triggers if tx["senderId"] == trig["senderId"]]:
-				match = re.match(trigger["regex"], tx["vendorField"])
-				if match:
-					# sys.stdout.write("> send match on tx #%s\n" % tx["id"])
-					LIFO.put(dict(tx=tx, codename=trigger["codename"], args=match.groups()))
-			# fill LIFO with smartBridge actions on tx receive
-			for trigger in [trig for trig in r_triggers if tx["recipientId"] == trig["recipientId"]]:
-				match = re.match(trigger["regex"], tx["vendorField"])
-				if match:
-					# sys.stdout.write("> receive match on tx #%s\n" % tx["id"])
-					LIFO.put(dict(tx=tx, codename=trigger["codename"], args=match.groups()))
+		initialize(height, s_triggers, r_triggers, FIFO, sys.stdout)
 
 	# save the last parsed block
 	if len(unparsed_blocks):
 		markLastParsedBlock(max(unparsed_blocks))
 
-	# launch pool of consumers
-	# processes = []
-	threads = []
-	for i in range(lysten.__CONFIG__.get("pool", 2)):
-		# p = multiprocessing.Process(target=consume, args=(LIFO, FIFO, LOCK))
-		# p.start()
-		# processes.append(p)
-
-		t = threading.Thread(target=consume, args=(LIFO, FIFO, LOCK))
-		t.start()
-		threads.append(t)
-
-	# # wait till all processes finished
-	# for p in processes: p.join()
-
-	# # wait till all threads finished
-	for t in threads: t.join()
-
-	# put boolean value to stop threads
-	FIFO.put(True)
- 
-
 	# manage data found in the FIFO
 	LOCK.set()
 	# sys.stdout.write("> finalizing...\n")
 	while LOCK.is_set():
-		elem = FIFO.get()
-		if isinstance(elem, dict):
+		try:
+			elem = FIFO.get_nowait()
 			finalize(**elem)
-		else:
+		except queue.Empty:
 			LOCK.clear()
-
-	# sys.stdout.write("> finished\n")
