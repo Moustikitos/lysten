@@ -189,18 +189,18 @@ def getRecipientIdTriggers():
 	return _database().cursor().execute("SELECT * FROM receive_trigger;").fetchall()
 
 
-def initialize(height, s_triggers, r_triggers, fifo, stdout):
-	stdout.write("> searching tx on block #%s\n" % height)
+def initialize(height, s_triggers, r_triggers, lifo):
+	sys.stdout.write("> searching tx on block #%s\n" % height)
 	
 	def execute(codename, *args, **tx):
 		try:
 			func = loadAction(codename)
 			if not func:
-				raise Exception("codename does not exists")
+				result = False #raise Exception("codename does not exists")
 			else:
 				result = func(*args, **tx)
 		except Exception as e:
-			fifo.put(dict(
+			lifo.put(dict(
 				timestamp=int(time.time()),
 				status="error",
 				tx=tx,
@@ -209,7 +209,7 @@ def initialize(height, s_triggers, r_triggers, fifo, stdout):
 			))
 		else:
 			if result != False:
-				fifo.put(dict(
+				lifo.put(dict(
 					timestamp=int(time.time()),
 					status="success",
 					tx=tx,
@@ -217,7 +217,7 @@ def initialize(height, s_triggers, r_triggers, fifo, stdout):
 					args="%r"%args
 				))
 			else:
-				fifo.put(dict(
+				lifo.put(dict(
 					timestamp=int(time.time()),
 					status="fail",
 					tx=tx,
@@ -231,7 +231,7 @@ def initialize(height, s_triggers, r_triggers, fifo, stdout):
 		for trigger in triggers:
 			match = re.match(trigger["regex"], tx["vendorField"])
 			if match:
-				stdout.write("> match on tx #%s\n" % tx["id"])
+				sys.stdout.write("> match on tx #%s\n" % tx["id"])
 				execute(trigger["codename"], *match.groups(), **tx)
 
 
@@ -240,9 +240,20 @@ def finalize(timestamp, status, tx, codename, args):
 	return False if status != "success" else True
 
 
+def consume(fifo, lock):
+	lock.set()
+	while lock.is_set():
+		try:
+			elem = fifo.get_nowait()
+			initialize(*elem)
+		except queue.Empty:
+			lock.clear()
+
+
 def main():
 
 	LOCK = threading.Event()
+	LIFO = queue.LifoQueue()
 	FIFO = queue.Queue()
 
 	# when listening to account sending smartBridge tx
@@ -251,20 +262,27 @@ def main():
 	r_triggers = getRecipientIdTriggers()
 
 	unparsed_blocks = getUnparsedBlocks()
-
 	for height in unparsed_blocks:
-		initialize(height, s_triggers, r_triggers, FIFO, sys.stdout)
+		FIFO.put([height, s_triggers, r_triggers, LIFO])
 
 	# save the last parsed block
 	if len(unparsed_blocks):
 		markLastParsedBlock(max(unparsed_blocks))
 
-	# manage data found in the FIFO
+	threads = []
+	for i in range(lysten.__CONFIG__.get("pool", 4)):
+		t = threading.Thread(target=consume, args=(FIFO, LOCK))
+		threads.append(t)
+		t.start()
+	for thread in threads:
+		thread.join()
+
+	# manage data found in the LIFO
 	LOCK.set()
 	# sys.stdout.write("> finalizing...\n")
 	while LOCK.is_set():
 		try:
-			elem = FIFO.get_nowait()
+			elem = LIFO.get_nowait()
 			finalize(**elem)
 		except queue.Empty:
 			LOCK.clear()

@@ -51,7 +51,9 @@ def forever():
 			break
 		else:
 			time.sleep(data.get("delay", 1))
-			threading.Thread(target=call, args=(main,)).start()
+			thread = threading.Thread(target=call, args=(main,))
+			thread.start()
+			# thread.join()
 	sys.stdout.write(">>> finishing remaining tasks...\n")
 	while len(threading.enumerate()) > 1:
 		time.sleep(data.get("delay", 1))
